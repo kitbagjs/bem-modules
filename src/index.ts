@@ -78,7 +78,7 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * ```ts
  * import styles from './card.module.css'
  *
- * // Default: camelCase autocomplete
+ * // Default: kebab-case autocomplete
  * const bem = createBem(styles)
  * bem('card')                                         // block only
  * bem('card', 'title')                                // block + element
@@ -86,8 +86,8 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * bem('card', 'title', ['highlighted', isLarge && 'large']) // conditional modifiers
  * bem('card', null, 'featured')                       // block + modifier (no element)
  *
- * // Kebab-case autocomplete
- * const bem = createBem(styles, { casing: 'kebab' })
+ * // camelCase autocomplete
+ * const bem = createBem(styles, { casing: 'camel' })
  *
  * // Accept any casing
  * const bem = createBem(styles, { casing: 'any' })
