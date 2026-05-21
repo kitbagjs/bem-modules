@@ -16,7 +16,6 @@ const bem = createBem(styles)
 bem('card')                          // → "_card_x1"
 bem('card', 'title')                 // → "_card__title_x2"
 bem('card', 'title', 'highlighted')  // → "_card__title_x2 _card__title--highlighted_x3"
-bem('card', null, 'featured')        // → "_card_x1 _card--featured_x6"
 ```
 
 ---
@@ -65,10 +64,10 @@ import styles from './card.module.css'
 
 const bem = createBem(styles)
 
-function Card({ featured, title }: { featured: boolean; title: string }) {
+function Card({ highlighted, title }: { highlighted: boolean; title: string }) {
   return (
-    <div className={bem('card', null, [featured && 'featured'])}>
-      <h2 className={bem('card', 'title', ['highlighted'])}>{title}</h2>
+    <div className={bem('card')}>
+      <h2 className={bem('card', 'title', [highlighted && 'highlighted'])}>{title}</h2>
       <div className={bem('card', 'body')} />
     </div>
   )
@@ -109,7 +108,7 @@ bem('card', 'title', ['highlighted', 'large'])
 
 ### Block + modifier (no element)
 
-Pass `null` as the element to attach modifiers directly to the block. The base `block` class is always included.
+For the less common case of a modifier on the block itself, pass `null` as the element. The base `block` class is always included.
 
 ```ts
 bem('card', null, 'featured')
