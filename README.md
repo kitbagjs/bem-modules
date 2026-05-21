@@ -159,14 +159,17 @@ bem('navBar', 'item', 'active') // resolves to nav-bar__item--active
 
 ### `strict`
 
-Controls what happens when a requested class **isn't found** in the `styles` object.
+Controls what happens when a requested class **isn't found** in the `styles` object — both at runtime and in the type signature.
 
-- `false` (default) — falls back to the raw BEM key (e.g. `'card__title--nonexistent'`). Handy for global classes or classes composed from another source.
-- `true` — drops unmapped classes from the output entirely.
+- `false` (default) — falls back to the raw BEM key (e.g. `'card__title--nonexistent'`). Handy for global classes or classes composed from another source. The input type is **widened to any string** while still suggesting the keys from your `styles` object, so unknown classes don't raise a type error.
+- `true` — drops unmapped classes from the output entirely, and **restricts the input type** to the known keys, so unknown classes are a compile-time error.
 
 ```ts
+const loose = createBem(styles) // strict: false
+loose('card', 'title', 'nonexistent') // ok — falls back to 'card__title--nonexistent'
+
 const bem = createBem(styles, { strict: true })
-bem('card', 'title', 'nonexistent') // → only styles['card__title']
+bem('card', 'title', 'nonexistent') // type error — and only styles['card__title'] at runtime
 ```
 
 ---

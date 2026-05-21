@@ -37,7 +37,14 @@ type ApplyCasing<T extends string, C extends Casing> =
   : C extends 'any' ? string
   : KebabCase<T>
 
-type CasingInput<T extends string, TOptions extends BemOptions> = TOptions extends { casing: infer C extends Casing } ? ApplyCasing<T, C> : ApplyCasing<T, 'kebab'>
+// Unless `strict: true`, widen to any string while keeping the known keys as
+// autocomplete suggestions, mirroring the runtime that falls back to the raw
+// BEM key for unmapped classes.
+type WidenWhenLoose<T extends string, TOptions extends BemOptions> =
+  TOptions extends { strict: true } ? T : T | (string & {})
+
+type CasingInput<T extends string, TOptions extends BemOptions> =
+  WidenWhenLoose<TOptions extends { casing: infer C extends Casing } ? ApplyCasing<T, C> : ApplyCasing<T, 'kebab'>, TOptions>
 
 type ModifierInput<M extends string, TOptions extends BemOptions> = CasingInput<M, TOptions> | (CasingInput<M, TOptions> | Falsy)[]
 
@@ -70,8 +77,10 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * @param options.casing - Controls which casing is accepted for type-level autocomplete.
  *   Defaults to `'kebab'`. Pass `'camel'`, `'pascal'`, or `'any'` to accept all casings.
  *   This only affects autocomplete — runtime always kebab-cases regardless.
- * @param options.strict - When `true`, only returns classes found in the styles object.
- *   When `false` (default), falls back to the raw BEM key for unmapped classes.
+ * @param options.strict - When `true`, only returns classes found in the styles object,
+ *   and the input type is restricted to known keys.
+ *   When `false` (default), falls back to the raw BEM key for unmapped classes, and the
+ *   input type is widened to accept any string while still suggesting known keys.
  * @returns A `bem()` function with typed overloads for block, element, and modifier lookups.
  *
  * @example
