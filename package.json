@@ -1,7 +1,7 @@
 {
-  "name": "bem-modules",
+  "name": "@kitbag/bem-modules",
   "version": "0.1.0",
-  "description": "Type-safe BEM utility for CSS Modules — autocomplete your blocks, elements, and modifiers",
+  "description": "Type-safe BEM utility — autocomplete your blocks, elements, and modifiers",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

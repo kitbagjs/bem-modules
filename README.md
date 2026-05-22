@@ -1,50 +1,83 @@
-# bem-modules
+# @kitbag/bem-modules
 
-> Type-safe [BEM](https://getbem.com/) helper for CSS Modules — autocomplete your blocks, elements, and modifiers, then resolve them to hashed class names at runtime.
+> Type-safe [BEM](https://getbem.com/) helper — autocomplete your blocks, elements, and modifiers.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
 [![Types: included](https://img.shields.io/badge/types-included-blue.svg)](#typescript)
 
-`bem-modules` reads the keys of your CSS Modules `styles` object and turns them into a small, fully-typed `bem()` function. You write `bem('card', 'title', 'highlighted')` and get back the hashed classes — with editor autocomplete for every block, element, and modifier that actually exists in your stylesheet, and a type error for anything that doesn't.
+## Why
+
+BEM is a great naming convention, but using it means writing class names like `card__title--highlighted` by hand — which is tedious, error-prone, and noisy. With CSS Modules it's even worse: `styles['card__title--highlighted']`.
+
+`bem-modules` gives you a clean function call and works two ways:
+
+**Without CSS Modules** — builds raw BEM class strings. A lightweight alternative to concatenating while also ensuring the modifiers get applied correctly.
 
 ```ts
-import { createBem } from 'bem-modules'
+import { bem } from '@kitbag/bem-modules'
+
+bem('navBar', 'item', 'active')
+// → 'nav-bar__item nav-bar__item--active'
+```
+
+**With CSS Modules** — looks up hashed class names from your styles object with full autocomplete for every block, element, and modifier that exists in your stylesheet.
+
+```ts
+import { createBem } from '@kitbag/bem-modules'
 import styles from './card.module.css'
 
 const bem = createBem(styles)
 
-bem('card')                          // → "_card_x1"
-bem('card', 'title')                 // → "_card__title_x2"
-bem('card', 'title', 'highlighted')  // → "_card__title_x2 _card__title--highlighted_x3"
+bem('card', 'title', 'highlighted')
+// → '_card__title_x2 _card__title--highlighted_x3'
 ```
 
----
+### Why BEM + CSS Modules?
 
-## Why
+In many ways, both BEM and CSS Modules aim to make styles modular and avoid cross-component interference, but BEM does it via a naming convention in a global namespace, while CSS Modules do it via tooling and local scope.
 
-CSS Modules hash your class names (`card__title` → `_card__title_x2`), which is great for scoping but awkward to use. You either reference `styles['card__title']` everywhere — losing autocomplete and inviting typos — or you reach for a `classnames`-style helper that knows nothing about your stylesheet.
+**BEM gives you meaningful structure.** Class names like `card__title--highlighted` tell you what a class is (a title inside a card), what state it represents (highlighted), and how it relates to other classes. This structure is visible in devtools, making debugging straightforward.
 
-`bem-modules` closes that gap:
+**CSS Modules give you scoping.** They guarantee your class names won't collide with anything else in the application. Even if two components both have a `.title` class, the generated hashes (like `_title_x7f2a`) protect styles from leaking between them.
 
-- **Autocomplete is driven by your CSS.** The set of valid blocks, elements, and modifiers is inferred from the keys of your `styles` object. Rename a class in CSS and TypeScript flags every stale usage.
-- **BEM structure is enforced by types.** Elements only autocomplete for the block they belong to; modifiers only for the right block/element pair.
-- **No string concatenation.** You pass parts, not `block__element--modifier` strings, so you can't fat-finger a separator.
+Together they provide a powerful combination of readability, enforced structure, and isolation.
+
+- Without BEM, CSS Modules class names are flat and unstructured — you lose the ability to see component relationships at a glance in devtools.
+- Without CSS Modules, BEM relies on discipline alone to avoid collisions across a large codebase.
 
 ---
 
 ## Installation
 
-```bash
-npm install bem-modules
-```
+Install `@kitbag/bem-modules` with your favorite package manager:
 
-`bem-modules` ships as ESM with bundled type declarations. Its only runtime dependency is [`string-ts`](https://github.com/gustavoguichard/string-ts).
+```bash
+# bun
+bun add @kitbag/bem-modules
+# yarn
+yarn add @kitbag/bem-modules
+# npm
+npm install @kitbag/bem-modules
+```
 
 ---
 
 ## Quick start
 
-Given a CSS Modules file written with BEM class names:
+```ts
+import { bem } from '@kitbag/bem-modules'
+
+bem('card')                            // 'card'
+bem('card', 'title')                   // 'card__title'
+bem('card', 'title', 'highlighted')    // 'card__title card__title--highlighted'
+bem('card', null, 'featured')          // 'card card--featured'
+```
+
+### With CSS Modules
+
+TypeScript infers the valid blocks, elements, and modifiers from your styles object — rename a class in CSS and every stale usage becomes a type error.
+
+#### In React
 
 ```css
 /* card.module.css */
@@ -56,15 +89,15 @@ Given a CSS Modules file written with BEM class names:
 .card__body { /* ... */ }
 ```
 
-Create a `bem` helper once and use it throughout the component:
-
 ```tsx
-import { createBem } from 'bem-modules'
+import { createBem } from '@kitbag/bem-modules'
 import styles from './card.module.css'
 
 const bem = createBem(styles)
 
-function Card({ highlighted, title }: { highlighted: boolean; title: string }) {
+function Card({ title }: { title: string }) {
+  const [highlighted, setHighlighted] = useState(false)
+
   return (
     <div className={bem('card')}>
       <h2 className={bem('card', 'title', [highlighted && 'highlighted'])}>{title}</h2>
@@ -74,48 +107,33 @@ function Card({ highlighted, title }: { highlighted: boolean; title: string }) {
 }
 ```
 
----
+#### In Vue
 
-## Usage
+```vue
+<script setup lang="ts">
+  import { createBem } from '@kitbag/bem-modules'
+  import { useCssModule } from 'vue'
 
-`createBem(styles)` returns a `bem()` function with four typed call shapes.
+  const styles = useCssModule()
+  const bem = createBem(styles)
+</script>
 
-### Block
+<template>
+  <div class="${bem('card')}">
+    <h2 class="${bem('card', 'title', [highlighted && 'highlighted'])}">${title}</h2>
+    <div class="${bem('card', 'body')}"></div>
+  </div>
+</template>
 
-```ts
-bem('card')
-// → styles['card']
+<style module>
+  .card {
+    /* ... */
+  }
+  .card__title {
+    /* ... */
+  }
+</style>
 ```
-
-### Block + element
-
-```ts
-bem('card', 'title')
-// → styles['card__title']
-```
-
-### Block + element + modifier(s)
-
-The base `block__element` class is always included, followed by each modifier class.
-
-```ts
-bem('card', 'title', 'highlighted')
-// → styles['card__title'] + ' ' + styles['card__title--highlighted']
-
-bem('card', 'title', ['highlighted', 'large'])
-// → base + both modifier classes
-```
-
-### Block + modifier (no element)
-
-For the less common case of a modifier on the block itself, pass `null` as the element. The base `block` class is always included.
-
-```ts
-bem('card', null, 'featured')
-// → styles['card'] + ' ' + styles['card--featured']
-```
-
----
 
 ## Conditional modifiers
 
@@ -125,11 +143,9 @@ Modifiers accept an array, and **falsy values (`false`, `null`, `undefined`, `0`
 bem('card', 'title', [
   'highlighted',
   isLarge && 'large',      // included only when isLarge is truthy
-  isActive && 'active',
+  isActive && 'active',    // included only when isActive is truthy
 ])
 ```
-
-Use the array form for conditionals so the result stays type-checked.
 
 ---
 
@@ -141,16 +157,15 @@ createBem(styles, { casing: 'kebab', strict: false })
 
 ### `casing`
 
-Controls **which casing your editor autocompletes** for blocks, elements, and modifiers. This is purely a type-level convenience — at runtime every input is converted to kebab-case before lookup, so the resolved class is identical regardless of casing.
+Controls **which casing your editor autocompletes** for blocks, elements, and modifiers. This is purely a type-level convenience — at runtime every input is converted to kebab-case, so the resolved class is identical regardless of casing.
 
 | Value      | You write                      | Resolves to            |
 | ---------- | ------------------------------ | ---------------------- |
 | `'kebab'`  | `bem('nav-bar', 'item')`       | `nav-bar__item`        |
 | `'camel'`  | `bem('navBar', 'item')`        | `nav-bar__item`        |
 | `'pascal'` | `bem('NavBar', 'Item')`        | `nav-bar__item`        |
-| `'any'`    | any string accepted            | kebab-cased input      |
 
-Defaults to `'kebab'`, matching CSS Modules keys as authored. Choose `'camel'` or `'pascal'` if you prefer those identifiers in your TypeScript while keeping kebab-case in CSS. `'any'` disables autocomplete checking entirely and accepts any string.
+Defaults to `'kebab'`, matching CSS class names as authored. Choose `'camel'` or `'pascal'` if you prefer those identifiers in your TypeScript while keeping kebab-case in CSS.
 
 ```ts
 const bem = createBem(styles, { casing: 'camel' })
@@ -168,43 +183,9 @@ Controls what happens when a requested class **isn't found** in the `styles` obj
 const loose = createBem(styles) // strict: false
 loose('card', 'title', 'nonexistent') // ok — falls back to 'card__title--nonexistent'
 
-const bem = createBem(styles, { strict: true })
-bem('card', 'title', 'nonexistent') // type error — and only styles['card__title'] at runtime
+const strict = createBem(styles, { strict: true })
+strict('card', 'title', 'nonexistent') // type error — and only styles['card__title'] at runtime
 ```
-
----
-
-## Type utilities
-
-The same types that power autocomplete are exported, so you can derive precise types from a `styles` object:
-
-```ts
-import type { Blocks, Elements, Modifiers } from 'bem-modules'
-
-type S = typeof styles
-
-type Block    = Blocks<S>                  // 'card' | 'nav-bar'
-type Element  = Elements<S, 'card'>        // 'title' | 'body'
-type Modifier = Modifiers<S, 'card', 'title'> // 'highlighted' | 'large'
-type BlockMod = Modifiers<S, 'card'>       // 'featured' | 'dark-mode'
-```
-
-Also exported: `Styles`, `Casing`, and `BemOptions`.
-
----
-
-## How it works
-
-1. **At the type level**, `createBem` parses the keys of your `styles` object against the BEM grammar (`block__element--modifier`) to build unions of valid blocks, elements, and modifiers. Each `bem()` overload constrains its arguments to those unions.
-2. **At runtime**, the arguments are kebab-cased and reassembled into BEM keys, which are looked up in `styles`. The base class plus any modifier classes are de-duplicated and joined with spaces.
-
-Because lookup happens against the real `styles` object, the output is always the actual hashed class names CSS Modules generated.
-
-## TypeScript
-
-- Requires a CSS Modules setup where importing a stylesheet yields a `Record<string, string>` of BEM keys to hashed values (the default for most bundlers, e.g. Vite, Next.js, webpack `css-loader`).
-- For the strongest inference, ensure your styles object is treated as `const`/literal — most CSS Modules type plugins already emit literal keys.
-- The library is `strict`-mode clean and ships its own `.d.ts`.
 
 ---
 

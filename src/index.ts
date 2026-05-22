@@ -29,17 +29,13 @@ type Modifiers<S extends Styles, B extends Blocks<S>, E extends Elements<S, B> |
 
 type Falsy = false | null | undefined | 0 | ''
 
-type Casing = 'kebab' | 'camel' | 'pascal' | 'any'
+type Casing = 'kebab' | 'camel' | 'pascal'
 
 type ApplyCasing<T extends string, C extends Casing> =
   C extends 'camel' ? CamelCase<T>
   : C extends 'pascal' ? PascalCase<T>
-  : C extends 'any' ? string
   : KebabCase<T>
 
-// Unless `strict: true`, widen to any string while keeping the known keys as
-// autocomplete suggestions, mirroring the runtime that falls back to the raw
-// BEM key for unmapped classes.
 type WidenWhenLoose<T extends string, TOptions extends BemOptions> =
   TOptions extends { strict: true } ? T : T | (string & {})
 
@@ -49,6 +45,11 @@ type CasingInput<T extends string, TOptions extends BemOptions> =
 type ModifierInput<M extends string, TOptions extends BemOptions> = CasingInput<M, TOptions> | (CasingInput<M, TOptions> | Falsy)[]
 
 interface BemOptions {
+  /**
+   * Controls which casing is accepted for type-level autocomplete.
+   * Defaults to `'kebab'`. Pass `'camel'`, `'pascal'`, or `'any'` to accept all casings.
+   * This only affects autocomplete — actual runtime return values are always kebab-cases regardless.
+   */
   casing?: Casing
   /**
    * When `true`, only returns classes found in the styles object.
@@ -66,16 +67,17 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
 }
 
 /**
- * Create a type-safe BEM helper bound to a CSS modules styles object.
+ * Create a BEM class name helper, optionally bound to a CSS modules styles object.
  *
- * Returns a `bem()` function that looks up hashed class names from your styles
- * object using BEM conventions (`block__element--modifier`). Input strings are
- * automatically converted to kebab-case at runtime, so you can write in any casing.
+ * When called with a styles object, looks up hashed class names using BEM conventions
+ * (`block__element--modifier`). When called without styles, builds raw BEM class strings.
+ * Input strings are automatically converted to kebab-case at runtime.
  *
  * @param styles - A CSS modules styles object (keys are BEM class names, values are hashed strings).
+ *   Omit to use as a plain BEM string builder.
  * @param options - Optional configuration.
  * @param options.casing - Controls which casing is accepted for type-level autocomplete.
- *   Defaults to `'kebab'`. Pass `'camel'`, `'pascal'`, or `'any'` to accept all casings.
+ *   Defaults to `'kebab'`. Pass `'camel'` or `'pascal'` to match your preferred coding style.
  *   This only affects autocomplete — runtime always kebab-cases regardless.
  * @param options.strict - When `true`, only returns classes found in the styles object,
  *   and the input type is restricted to known keys.
@@ -85,9 +87,8 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  *
  * @example
  * ```ts
+ * // With CSS modules — hashed class lookup with autocomplete
  * import styles from './card.module.css'
- *
- * // Default: kebab-case autocomplete
  * const bem = createBem(styles)
  * bem('card')                                         // block only
  * bem('card', 'title')                                // block + element
@@ -95,33 +96,33 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * bem('card', 'title', ['highlighted', isLarge && 'large']) // conditional modifiers
  * bem('card', null, 'featured')                       // block + modifier (no element)
  *
- * // camelCase autocomplete
- * const bem = createBem(styles, { casing: 'camel' })
- *
- * // Accept any casing
- * const bem = createBem(styles, { casing: 'any' })
+ * // Without CSS modules — plain BEM string builder
+ * const bem = createBem()
+ * bem('card', 'title', 'highlighted') // → 'card__title card__title--highlighted'
  * ```
  */
 export function createBem<
-  const TStyles extends Styles,
-  const TOptions extends BemOptions,
->(styles: TStyles, options?: TOptions) {
+  const TStyles extends Styles = Record<string, never>,
+  const TOptions extends BemOptions = BemOptions,
+>(styles?: TStyles, options?: TOptions) {
+  const resolvedStyles = styles ?? {} as TStyles
+
   /**
-   * Returns the hashed CSS module class for a block.
+   * Returns the class for a block.
    *
    * @param block - The BEM block name.
-   * @example bem('card') // → styles['card']
+   * @example bem('card')
    */
   function bem<
     const B extends Blocks<TStyles>
   >(block: CasingInput<B, TOptions>): string
 
   /**
-   * Returns the hashed CSS module class for a block + element.
+   * Returns the class for a block + element.
    *
    * @param block - The BEM block name.
    * @param element - The BEM element name.
-   * @example bem('card', 'title') // → styles['card__title']
+   * @example bem('card', 'title')
    */
   function bem<
     const B extends Blocks<TStyles>,
@@ -129,7 +130,7 @@ export function createBem<
   >(block: CasingInput<B, TOptions>, element: CasingInput<E, TOptions>): string
 
   /**
-   * Returns the hashed CSS module classes for a block + element with modifier(s).
+   * Returns the classes for a block + element with modifier(s).
    * The base block__element class is always included.
    *
    * @param block - The BEM block name.
@@ -146,7 +147,7 @@ export function createBem<
   >(block: CasingInput<B, TOptions>, element: CasingInput<E, TOptions>, modifiers: ModifierInput<M, TOptions>): string
 
   /**
-   * Returns the hashed CSS module classes for a block with modifier(s) and no element.
+   * Returns the classes for a block with modifier(s) and no element.
    * The base block class is always included.
    *
    * @param block - The BEM block name.
@@ -177,12 +178,25 @@ export function createBem<
     const strict = options?.strict ?? false
 
     return Array.from(classNames)
-      .map(key => styles[key] ?? (strict ? null : key))
+      .map(key => resolvedStyles[key] ?? (strict ? null : key))
       .filter(Boolean)
       .join(' ')
   }
 
   return bem
 }
+
+/**
+ * A pre-built BEM helper for use without CSS Modules.
+ * Builds raw BEM class strings with kebab-case conversion.
+ *
+ * @example
+ * ```ts
+ * import { bem } from 'bem-modules'
+ *
+ * bem('card', 'title', 'highlighted') // → 'card__title card__title--highlighted'
+ * ```
+ */
+export const bem = createBem()
 
 export type { Styles, Blocks, Elements, Modifiers, Casing, BemOptions }

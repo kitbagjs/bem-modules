@@ -1,5 +1,5 @@
 import { describe, test, expect, expectTypeOf } from 'vitest'
-import { createBem, type Blocks, type Elements, type Modifiers } from './index'
+import { bem, createBem, type Blocks, type Elements, type Modifiers } from './index'
 
 // Simulated CSS modules output — keys are BEM classes, values are hashed names
 const styles = {
@@ -133,13 +133,6 @@ describe('casing option', () => {
       [styles['nav-bar__item'], styles['nav-bar__item--active']].join(' '),
     )
   })
-
-  test('any casing accepts all casings', () => {
-    const bem = createBem(styles, { casing: 'any' })
-    const value = bem('anything', 'works', ['here', 'friend'])
-
-    expect(value).toBe('anything__works anything__works--here anything__works--friend')
-  })
 })
 
 describe('strict input typing', () => {
@@ -154,6 +147,7 @@ describe('strict input typing', () => {
 
   test('loose mode still accepts known keys', () => {
     const bem = createBem(styles, { strict: false })
+    
     expect(bem('card', 'title', 'highlighted')).toBe(
       [styles['card__title'], styles['card__title--highlighted']].join(' '),
     )
@@ -171,6 +165,37 @@ describe('strict input typing', () => {
     const bem = createBem(styles, { strict: true })
     // @ts-expect-error — unknown modifier is not assignable in strict mode
     bem('card', 'title', 'whatever')
+  })
+})
+
+describe('without styles (plain BEM)', () => {
+  test('returns raw BEM block string', () => {
+    expect(bem('card')).toBe('card')
+  })
+
+  test('returns raw BEM block__element string', () => {
+    expect(bem('card', 'title')).toBe('card__title')
+  })
+
+  test('returns raw BEM block__element--modifier string', () => {
+    expect(bem('card', 'title', 'highlighted')).toBe('card__title card__title--highlighted')
+  })
+
+  test('handles modifier array with falsy values', () => {
+    const isLarge = false
+    expect(bem('card', 'title', ['highlighted', isLarge && 'large'])).toBe(
+      'card__title card__title--highlighted',
+    )
+  })
+
+  test('returns raw BEM block--modifier string', () => {
+    expect(bem('card', null, 'featured')).toBe('card card--featured')
+  })
+
+  test('converts casing to kebab-case', () => {
+    expect(bem('navBar', 'listItem', 'isActive')).toBe(
+      'nav-bar__list-item nav-bar__list-item--is-active',
+    )
   })
 })
 
@@ -193,5 +218,23 @@ describe('type extraction', () => {
   test('extracts modifiers for block only', () => {
     type Input = Modifiers<S, 'card'>
     expectTypeOf<Input>().toEqualTypeOf<'featured' | 'dark-mode'>()
+  })
+
+  describe('strict mode types', () => {
+    test('strict block input is restricted to known blocks', () => {
+      const strictBem = createBem(styles, { strict: true })
+      type BlockParam = Parameters<typeof strictBem>[0]
+      expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
+      expectTypeOf<'nav-bar'>().toMatchTypeOf<BlockParam>()
+      // @ts-expect-error — unknown block not assignable in strict mode
+      expectTypeOf<'unknown'>().toMatchTypeOf<BlockParam>()
+    })
+
+    test('loose block input accepts any string', () => {
+      const looseBem = createBem(styles)
+      type BlockParam = Parameters<typeof looseBem>[0]
+      expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
+      expectTypeOf<'anything'>().toMatchTypeOf<BlockParam>()
+    })
   })
 })
