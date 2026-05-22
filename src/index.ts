@@ -49,7 +49,9 @@ type WidenWhenLoose<T extends string, TOptions extends BemOptions> =
 type CasingInput<T extends string, TOptions extends BemOptions> =
   WidenWhenLoose<TOptions extends { casing: infer C extends Casing } ? ApplyCasing<T, C> : ApplyCasing<T, 'kebab'>, TOptions>
 
-type ModifierInput<M extends string, TOptions extends BemOptions> = CasingInput<M, TOptions> | (CasingInput<M, TOptions> | Falsy)[]
+type ModifierRecord<M extends string, TOptions extends BemOptions> = Partial<Record<CasingInput<M, TOptions>, boolean | undefined>>
+
+type ModifierInput<M extends string, TOptions extends BemOptions> = CasingInput<M, TOptions> | (CasingInput<M, TOptions> | Falsy)[] | ModifierRecord<M, TOptions>
 
 interface BemOptions {
   /**
@@ -64,6 +66,10 @@ interface BemOptions {
    * which is useful for global styles or composed classes from other sources.
    */
   strict?: boolean
+}
+
+function isModifierRecord(value: unknown): value is Record<string, boolean | undefined> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function toBem(block: string, element?: string | null, modifier?: string): string {
@@ -97,11 +103,11 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * // With CSS modules — hashed class lookup with autocomplete
  * import styles from './card.module.css'
  * const bem = createBem(styles)
- * bem('card')                                         // block only
- * bem('card', 'title')                                // block + element
- * bem('card', 'title', 'highlighted')                 // block + element + modifier
- * bem('card', 'title', ['highlighted', isLarge && 'large']) // conditional modifiers
- * bem('card', null, 'featured')                       // block + modifier (no element)
+ * bem('card')                                              // block only
+ * bem('card', 'title')                                     // block + element
+ * bem('card', 'title', 'highlighted')                      // block + element + modifier
+ * bem('card', 'title', { highlighted: true, large: isLarge }) // conditional modifiers
+ * bem('card', null, 'featured')                             // block + modifier (no element)
  *
  * // Without CSS modules — plain BEM string builder
  * const bem = createBem()
@@ -142,10 +148,10 @@ export function createBem<
    *
    * @param block - The BEM block name.
    * @param element - The BEM element name.
-   * @param modifiers - A single modifier or array of modifiers. Falsy values are filtered out.
+   * @param modifiers - A single modifier, an array of modifiers, or an object mapping modifiers to booleans. Falsy values are filtered out.
    * @example
    * bem('card', 'title', 'highlighted')
-   * bem('card', 'title', ['highlighted', isLarge && 'large'])
+   * bem('card', 'title', { highlighted: true, large: isLarge })
    */
   function bem<
     const B extends Blocks<TStyles>,
@@ -159,7 +165,7 @@ export function createBem<
    *
    * @param block - The BEM block name.
    * @param element - Pass `null` to skip the element.
-   * @param modifiers - A single modifier or array of modifiers. Falsy values are filtered out.
+   * @param modifiers - A single modifier, an array of modifiers, or an object mapping modifiers to booleans. Falsy values are filtered out.
    * @example bem('card', null, 'featured')
    */
   function bem<
@@ -170,14 +176,18 @@ export function createBem<
   function bem(
     block: string,
     element?: string | null,
-    modifiers: string | Falsy | (string | Falsy)[] = [],
+    modifiers: string | Falsy | (string | Falsy)[] | Record<string, boolean | undefined> = [],
   ): string {
     const classNames = new Set<string>()
     const className = toBem(block, element)
 
     classNames.add(className)
 
-    for (const modifier of Array.isArray(modifiers) ? modifiers : [modifiers]) {
+    const normalized = isModifierRecord(modifiers)
+      ? Object.entries(modifiers).filter(([, v]) => v).map(([k]) => k)
+      : Array.isArray(modifiers) ? modifiers : [modifiers]
+
+    for (const modifier of normalized) {
       if (!modifier) continue
       classNames.add(toBem(block, element, modifier))
     }
@@ -206,4 +216,4 @@ export function createBem<
  */
 export const bem = createBem()
 
-export type { Styles, Blocks, Elements, Modifiers, Casing, BemOptions }
+export type { Styles, Blocks, Elements, Modifiers, BemOptions }

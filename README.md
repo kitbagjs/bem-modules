@@ -96,11 +96,11 @@ import styles from './card.module.css'
 const bem = createBem(styles)
 
 function Card({ title }: { title: string }) {
-  const [highlighted, setHighlighted] = useState(false)
+  const [isHighlighted, setIsHighlighted] = useState(false)
 
   return (
     <div className={bem('card')}>
-      <h2 className={bem('card', 'title', [highlighted && 'highlighted'])}>{title}</h2>
+      <h2 className={bem('card', 'title', { highlighted: isHighlighted })}>{title}</h2>
       <div className={bem('card', 'body')} />
     </div>
   )
@@ -116,11 +116,13 @@ function Card({ title }: { title: string }) {
 
   const styles = useCssModule()
   const bem = createBem(styles)
+
+  const isHighlighted = ref(false)
 </script>
 
 <template>
   <div class="${bem('card')}">
-    <h2 class="${bem('card', 'title', [highlighted && 'highlighted'])}">${title}</h2>
+    <h2 class="${bem('card', 'title', { highlighted: isHighlighted })}">${title}</h2>
     <div class="${bem('card', 'body')}"></div>
   </div>
 </template>
@@ -137,13 +139,23 @@ function Card({ title }: { title: string }) {
 
 ## Conditional modifiers
 
-Modifiers accept an array, and **falsy values (`false`, `null`, `undefined`, `0`, `''`) are filtered out** — perfect for toggling classes from state:
+Modifiers accept an object mapping modifier names to booleans — perfect for toggling classes from state:
+
+```ts
+bem('card', 'title', {
+  highlighted: true,
+  large: isLarge,       // included only when isLarge is truthy
+  active: isActive,     // included only when isActive is truthy
+})
+```
+
+You can also pass an array where **falsy values (`false`, `null`, `undefined`, `0`, `''`) are filtered out**:
 
 ```ts
 bem('card', 'title', [
   'highlighted',
-  isLarge && 'large',      // included only when isLarge is truthy
-  isActive && 'active',    // included only when isActive is truthy
+  isLarge && 'large',
+  isActive && 'active',
 ])
 ```
 

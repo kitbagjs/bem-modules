@@ -77,13 +77,49 @@ describe('createBem', () => {
     })
   })
 
+  describe('object modifiers', () => {
+    test('applies modifiers with truthy values', () => {
+      const bem = createBem(styles)
+      const value = bem('card', 'title', { 'highlighted': true, 'large': false })
+
+      expect(value).toBe(
+        [styles['card__title'], styles['card__title--highlighted']].join(' '),
+      )
+    })
+
+    test('applies multiple truthy modifiers', () => {
+      const bem = createBem(styles)
+      const value = bem('card', 'title', { 'highlighted': true, 'large': true })
+
+      expect(value).toBe(
+        [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
+      )
+    })
+
+    test('applies no modifiers when all values are falsy', () => {
+      const bem = createBem(styles)
+      const value = bem('card', 'title', { 'highlighted': false, 'large': undefined })
+
+      expect(value).toBe(styles['card__title'])
+    })
+
+    test('works with block + null element', () => {
+      const bem = createBem(styles)
+      const value = bem('card', null, { 'featured': true })
+
+      expect(value).toBe(
+        [styles['card'], styles['card--featured']].join(' '),
+      )
+    })
+  })
+
   describe('block + null element + modifier', () => {
     test('applies modifier directly to block', () => {
       const bem = createBem(styles)
-      const value = bem('card', null, 'featured')
-      
+      const value = bem('card', null, ['featured', true && 'dark-mode'])
+
       expect(value).toBe(
-        [styles['card'], styles['card--featured']].join(' '),
+        [styles['card'], styles['card--featured'], styles['card--dark-mode']].join(' '),
       )
     })
   })
@@ -165,6 +201,19 @@ describe('strict input typing', () => {
     const bem = createBem(styles, { strict: true })
     // @ts-expect-error — unknown modifier is not assignable in strict mode
     bem('card', 'title', 'whatever')
+  })
+
+  test('strict mode rejects unknown keys in modifier object', () => {
+    const bem = createBem(styles, { strict: true })
+    // @ts-expect-error — unknown key is not assignable in strict mode
+    bem('card', 'title', { 'whatever': true })
+  })
+
+  test('strict mode accepts known keys in modifier object', () => {
+    const bem = createBem(styles, { strict: true })
+    expect(bem('card', 'title', { highlighted: true, large: false })).toBe(
+      [styles['card__title'], styles['card__title--highlighted']].join(' '),
+    )
   })
 })
 
