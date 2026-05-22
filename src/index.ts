@@ -2,6 +2,13 @@ import { CamelCase, kebabCase, PascalCase, type KebabCase } from 'string-ts'
 
 type Styles = Record<string, string>
 
+type KnownKeys<T> = keyof {
+  [K in keyof T as string extends K ? never
+    : number extends K ? never
+    : symbol extends K ? never
+    : K]: T[K]
+} & string
+
 type ExtractBlock<K extends string> =
   K extends `${infer B}__${string}` ? B
   : K extends `${infer B}--${string}` ? B
@@ -20,12 +27,12 @@ type ExtractModifier<K extends string, Block extends string = string, Element ex
       : never
   : never
 
-type Blocks<S extends Styles> = ExtractBlock<keyof S & string>
+type Blocks<S extends Styles> = ExtractBlock<KnownKeys<S>>
 
-type Elements<S extends Styles, B extends Blocks<S>> = ExtractElement<keyof S & string, B>
+type Elements<S extends Styles, B extends Blocks<S>> = ExtractElement<KnownKeys<S>, B>
 
 type Modifiers<S extends Styles, B extends Blocks<S>, E extends Elements<S, B> | null = null> =
-  ExtractModifier<keyof S & string, B, E>
+  ExtractModifier<KnownKeys<S>, B, E>
 
 type Falsy = false | null | undefined | 0 | ''
 
