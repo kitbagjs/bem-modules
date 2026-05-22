@@ -91,13 +91,11 @@ describe('createBem', () => {
   describe('missing keys', () => {
     test('falls back to raw BEM key by default', () => {
       const bem = createBem(styles)
-      // @ts-expect-error — testing runtime safety
       expect(bem('nonexistent')).toBe('nonexistent')
     })
 
     test('falls back to raw BEM key for unknown modifiers by default', () => {
       const bem = createBem(styles)
-      // @ts-expect-error — testing runtime safety
       expect(bem('card', 'title', 'nonexistent')).toBe(
         [styles['card__title'], 'card__title--nonexistent'].join(' '),
       )
@@ -140,7 +138,39 @@ describe('casing option', () => {
     const bem = createBem(styles, { casing: 'any' })
     const value = bem('anything', 'works', ['here', 'friend'])
 
-    expect(value).toBe('anything works here friend')
+    expect(value).toBe('anything__works anything__works--here anything__works--friend')
+  })
+})
+
+describe('strict input typing', () => {
+  test('loose mode (default) accepts arbitrary strings', () => {
+    const bem = createBem(styles)
+    expect(bem('whatever')).toBe('whatever')
+    expect(bem('card', 'whatever')).toBe('card__whatever')
+    expect(bem('card', 'title', 'whatever')).toBe(
+      [styles['card__title'], 'card__title--whatever'].join(' '),
+    )
+  })
+
+  test('loose mode still accepts known keys', () => {
+    const bem = createBem(styles, { strict: false })
+    expect(bem('card', 'title', 'highlighted')).toBe(
+      [styles['card__title'], styles['card__title--highlighted']].join(' '),
+    )
+  })
+
+  test('strict mode rejects unknown blocks at the type level', () => {
+    const bem = createBem(styles, { strict: true })
+    // @ts-expect-error — unknown block is not assignable in strict mode
+    bem('whatever')
+    // known keys still typecheck
+    expect(bem('card')).toBe(styles['card'])
+  })
+
+  test('strict mode rejects unknown modifiers at the type level', () => {
+    const bem = createBem(styles, { strict: true })
+    // @ts-expect-error — unknown modifier is not assignable in strict mode
+    bem('card', 'title', 'whatever')
   })
 })
 
