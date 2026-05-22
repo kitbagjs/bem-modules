@@ -1,4 +1,4 @@
-import { CamelCase, kebabCase, PascalCase, type KebabCase } from 'string-ts'
+import { kebabCase } from 'string-ts'
 
 type Styles = Record<string, string>
 
@@ -36,37 +36,7 @@ type Modifiers<S extends Styles, B extends Blocks<S>, E extends Elements<S, B> |
 
 type Falsy = false | null | undefined | 0 | ''
 
-type Casing = 'kebab' | 'camel' | 'pascal'
-
-type ApplyCasing<T extends string, C extends Casing> =
-  C extends 'camel' ? CamelCase<T>
-  : C extends 'pascal' ? PascalCase<T>
-  : KebabCase<T>
-
-type WidenWhenLoose<T extends string, TOptions extends BemOptions> =
-  TOptions extends { strict: true } ? T : T | (string & {})
-
-type CasingInput<T extends string, TOptions extends BemOptions> =
-  WidenWhenLoose<TOptions extends { casing: infer C extends Casing } ? ApplyCasing<T, C> : ApplyCasing<T, 'kebab'>, TOptions>
-
-type ModifierRecord<M extends string, TOptions extends BemOptions> = Partial<Record<CasingInput<M, TOptions>, boolean | undefined>>
-
-type ModifierInput<M extends string, TOptions extends BemOptions> = CasingInput<M, TOptions> | (CasingInput<M, TOptions> | Falsy)[] | ModifierRecord<M, TOptions>
-
-interface BemOptions {
-  /**
-   * Controls which casing is accepted for type-level autocomplete.
-   * Defaults to `'kebab'`. Pass `'camel'`, `'pascal'`, or `'any'` to accept all casings.
-   * This only affects autocomplete — actual runtime return values are always kebab-cases regardless.
-   */
-  casing?: Casing
-  /**
-   * When `true`, only returns classes found in the styles object.
-   * When `false` (default), falls back to the raw BEM key for unmapped classes,
-   * which is useful for global styles or composed classes from other sources.
-   */
-  strict?: boolean
-}
+type ModifierInput<M extends string> = M | (M | Falsy)[] | Partial<Record<M, boolean | undefined>>
 
 function isModifierRecord(value: unknown): value is Record<string, boolean | undefined> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -80,27 +50,16 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
 }
 
 /**
- * Create a BEM class name helper, optionally bound to a CSS modules styles object.
+ * Create a BEM class name helper bound to a CSS modules styles object.
  *
- * When called with a styles object, looks up hashed class names using BEM conventions
- * (`block__element--modifier`). When called without styles, builds raw BEM class strings.
+ * Looks up hashed class names using BEM conventions (`block__element--modifier`).
  * Input strings are automatically converted to kebab-case at runtime.
  *
  * @param styles - A CSS modules styles object (keys are BEM class names, values are hashed strings).
- *   Omit to use as a plain BEM string builder.
- * @param options - Optional configuration.
- * @param options.casing - Controls which casing is accepted for type-level autocomplete.
- *   Defaults to `'kebab'`. Pass `'camel'` or `'pascal'` to match your preferred coding style.
- *   This only affects autocomplete — runtime always kebab-cases regardless.
- * @param options.strict - When `true`, only returns classes found in the styles object,
- *   and the input type is restricted to known keys.
- *   When `false` (default), falls back to the raw BEM key for unmapped classes, and the
- *   input type is widened to accept any string while still suggesting known keys.
  * @returns A `bem()` function with typed overloads for block, element, and modifier lookups.
  *
  * @example
  * ```ts
- * // With CSS modules — hashed class lookup with autocomplete
  * import styles from './card.module.css'
  * const bem = createBem(styles)
  * bem('card')                                              // block only
@@ -108,71 +67,34 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
  * bem('card', 'title', 'highlighted')                      // block + element + modifier
  * bem('card', 'title', { highlighted: true, large: isLarge }) // conditional modifiers
  * bem('card', null, 'featured')                             // block + modifier (no element)
+ * ```
+ */
+export function createBem<const TStyles extends Styles>(styles: TStyles): {
+  <B extends Blocks<TStyles>>(block: B): string
+  <B extends Blocks<TStyles>, E extends Elements<TStyles, B>>(block: B, element: E): string
+  <B extends Blocks<TStyles>, E extends Elements<TStyles, B>, M extends Modifiers<TStyles, B, E>>(block: B, element: E, modifiers: ModifierInput<M>): string
+  <B extends Blocks<TStyles>, M extends Modifiers<TStyles, B, null>>(block: B, element: null, modifiers?: ModifierInput<M>): string
+}
+
+/**
+ * Create a plain BEM class name builder (no CSS modules).
  *
- * // Without CSS modules — plain BEM string builder
+ * Builds raw BEM class strings with kebab-case conversion.
+ *
+ * @example
+ * ```ts
  * const bem = createBem()
  * bem('card', 'title', 'highlighted') // → 'card__title card__title--highlighted'
  * ```
  */
-export function createBem<
-  const TStyles extends Styles = Record<string, never>,
-  const TOptions extends BemOptions = BemOptions,
->(styles?: TStyles, options?: TOptions) {
-  const resolvedStyles = styles ?? {} as TStyles
+export function createBem(): {
+  (block: string): string
+  (block: string, element: string): string
+  (block: string, element: string, modifiers: ModifierInput<string>): string
+  (block: string, element: null, modifiers?: ModifierInput<string>): string
+}
 
-  /**
-   * Returns the class for a block.
-   *
-   * @param block - The BEM block name.
-   * @example bem('card')
-   */
-  function bem<
-    const B extends Blocks<TStyles>
-  >(block: CasingInput<B, TOptions>): string
-
-  /**
-   * Returns the class for a block + element.
-   *
-   * @param block - The BEM block name.
-   * @param element - The BEM element name.
-   * @example bem('card', 'title')
-   */
-  function bem<
-    const B extends Blocks<TStyles>,
-    const E extends Elements<TStyles, B>
-  >(block: CasingInput<B, TOptions>, element: CasingInput<E, TOptions>): string
-
-  /**
-   * Returns the classes for a block + element with modifier(s).
-   * The base block__element class is always included.
-   *
-   * @param block - The BEM block name.
-   * @param element - The BEM element name.
-   * @param modifiers - A single modifier, an array of modifiers, or an object mapping modifiers to booleans. Falsy values are filtered out.
-   * @example
-   * bem('card', 'title', 'highlighted')
-   * bem('card', 'title', { highlighted: true, large: isLarge })
-   */
-  function bem<
-    const B extends Blocks<TStyles>,
-    const E extends Elements<TStyles, B>,
-    const M extends Modifiers<TStyles, B, E>
-  >(block: CasingInput<B, TOptions>, element: CasingInput<E, TOptions>, modifiers: ModifierInput<M, TOptions>): string
-
-  /**
-   * Returns the classes for a block with modifier(s) and no element.
-   * The base block class is always included.
-   *
-   * @param block - The BEM block name.
-   * @param element - Pass `null` to skip the element.
-   * @param modifiers - A single modifier, an array of modifiers, or an object mapping modifiers to booleans. Falsy values are filtered out.
-   * @example bem('card', null, 'featured')
-   */
-  function bem<
-    const B extends Blocks<TStyles>,
-    const M extends Modifiers<TStyles, B, null>
-  >(block: CasingInput<B, TOptions>, element: null, modifiers?: ModifierInput<M, TOptions>): string
-
+export function createBem(styles?: Styles) {
   function bem(
     block: string,
     element?: string | null,
@@ -192,10 +114,8 @@ export function createBem<
       classNames.add(toBem(block, element, modifier))
     }
 
-    const strict = options?.strict ?? false
-
     return Array.from(classNames)
-      .map(key => resolvedStyles[key] ?? (strict ? null : key))
+      .map(key => styles ? styles[key] : key)
       .filter(Boolean)
       .join(' ')
   }
@@ -216,4 +136,4 @@ export function createBem<
  */
 export const bem = createBem()
 
-export type { Styles, Blocks, Elements, Modifiers, BemOptions }
+export type { Styles, Blocks, Elements, Modifiers }

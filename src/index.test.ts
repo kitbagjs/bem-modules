@@ -20,7 +20,7 @@ describe('createBem', () => {
     test('returns the block class', () => {
       const bem = createBem(styles)
       const value = bem('card')
-      
+
       expect(value).toBe(styles['card'])
     })
 
@@ -36,7 +36,7 @@ describe('createBem', () => {
     test('returns the block__element class', () => {
       const bem = createBem(styles)
       const value = bem('card', 'title')
-      
+
       expect(value).toBe(styles['card__title'])
     })
 
@@ -52,7 +52,7 @@ describe('createBem', () => {
     test('returns base + modifier classes', () => {
       const bem = createBem(styles)
       const value = bem('card', 'title', 'highlighted')
-      
+
       expect(value).toBe(
         [styles['card__title'], styles['card__title--highlighted']].join(' '),
       )
@@ -61,7 +61,7 @@ describe('createBem', () => {
     test('handles modifier array', () => {
       const bem = createBem(styles)
       const value = bem('card', 'title', ['highlighted', 'large'])
-      
+
       expect(value).toBe(
         [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
       )
@@ -70,7 +70,7 @@ describe('createBem', () => {
     test.each([false, null, undefined, 0, ''] as const)('filters falsy values from modifier array', (falsy) => {
       const bem = createBem(styles)
       const value = bem('card', 'title', ['highlighted', falsy && 'large'])
-      
+
       expect(value).toBe(
         [styles['card__title'], styles['card__title--highlighted']].join(' '),
       )
@@ -124,96 +124,18 @@ describe('createBem', () => {
     })
   })
 
-  describe('missing keys', () => {
-    test('falls back to raw BEM key by default', () => {
+  describe('unmapped keys', () => {
+    test('drops unmapped blocks', () => {
       const bem = createBem(styles)
-      expect(bem('nonexistent')).toBe('nonexistent')
-    })
-
-    test('falls back to raw BEM key for unknown modifiers by default', () => {
-      const bem = createBem(styles)
-      expect(bem('card', 'title', 'nonexistent')).toBe(
-        [styles['card__title'], 'card__title--nonexistent'].join(' '),
-      )
-    })
-
-    test('drops unmapped classes in strict mode', () => {
-      const bem = createBem(styles, { strict: true })
       // @ts-expect-error — testing runtime safety
       expect(bem('nonexistent')).toBe('')
     })
 
-    test('drops unknown modifiers in strict mode', () => {
-      const bem = createBem(styles, { strict: true })
+    test('drops unmapped modifiers', () => {
+      const bem = createBem(styles)
       // @ts-expect-error — testing runtime safety
       expect(bem('card', 'title', 'nonexistent')).toBe(styles['card__title'])
     })
-  })
-})
-
-describe('casing option', () => {
-  test('camel casing accepts camelCase input', () => {
-    const bem = createBem(styles, { casing: 'camel' })
-    const value = bem('navBar', 'item', 'active')
-
-    expect(value).toBe(
-      [styles['nav-bar__item'], styles['nav-bar__item--active']].join(' '),
-    )
-  })
-
-  test('pascal casing accepts PascalCase input', () => {
-    const bem = createBem(styles, { casing: 'pascal' })
-    const value = bem('NavBar', 'Item', 'Active')
-
-    expect(value).toBe(
-      [styles['nav-bar__item'], styles['nav-bar__item--active']].join(' '),
-    )
-  })
-})
-
-describe('strict input typing', () => {
-  test('loose mode (default) accepts arbitrary strings', () => {
-    const bem = createBem(styles)
-    expect(bem('whatever')).toBe('whatever')
-    expect(bem('card', 'whatever')).toBe('card__whatever')
-    expect(bem('card', 'title', 'whatever')).toBe(
-      [styles['card__title'], 'card__title--whatever'].join(' '),
-    )
-  })
-
-  test('loose mode still accepts known keys', () => {
-    const bem = createBem(styles, { strict: false })
-    
-    expect(bem('card', 'title', 'highlighted')).toBe(
-      [styles['card__title'], styles['card__title--highlighted']].join(' '),
-    )
-  })
-
-  test('strict mode rejects unknown blocks at the type level', () => {
-    const bem = createBem(styles, { strict: true })
-    // @ts-expect-error — unknown block is not assignable in strict mode
-    bem('whatever')
-    // known keys still typecheck
-    expect(bem('card')).toBe(styles['card'])
-  })
-
-  test('strict mode rejects unknown modifiers at the type level', () => {
-    const bem = createBem(styles, { strict: true })
-    // @ts-expect-error — unknown modifier is not assignable in strict mode
-    bem('card', 'title', 'whatever')
-  })
-
-  test('strict mode rejects unknown keys in modifier object', () => {
-    const bem = createBem(styles, { strict: true })
-    // @ts-expect-error — unknown key is not assignable in strict mode
-    bem('card', 'title', { 'whatever': true })
-  })
-
-  test('strict mode accepts known keys in modifier object', () => {
-    const bem = createBem(styles, { strict: true })
-    expect(bem('card', 'title', { highlighted: true, large: false })).toBe(
-      [styles['card__title'], styles['card__title--highlighted']].join(' '),
-    )
   })
 })
 
@@ -233,6 +155,12 @@ describe('without styles (plain BEM)', () => {
   test('handles modifier array with falsy values', () => {
     const isLarge = false
     expect(bem('card', 'title', ['highlighted', isLarge && 'large'])).toBe(
+      'card__title card__title--highlighted',
+    )
+  })
+
+  test('handles object modifiers', () => {
+    expect(bem('card', 'title', { highlighted: true, large: false })).toBe(
       'card__title card__title--highlighted',
     )
   })
@@ -269,21 +197,18 @@ describe('type extraction', () => {
     expectTypeOf<Input>().toEqualTypeOf<'featured' | 'dark-mode'>()
   })
 
-  describe('strict mode types', () => {
-    test('strict block input is restricted to known blocks', () => {
-      const strictBem = createBem(styles, { strict: true })
-      type BlockParam = Parameters<typeof strictBem>[0]
-      expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
-      expectTypeOf<'nav-bar'>().toMatchTypeOf<BlockParam>()
-      // @ts-expect-error — unknown block not assignable in strict mode
-      expectTypeOf<'unknown'>().toMatchTypeOf<BlockParam>()
-    })
+  test('with styles, input is restricted to known blocks', () => {
+    const bem = createBem(styles)
+    type BlockParam = Parameters<typeof bem>[0]
+    expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
+    expectTypeOf<'nav-bar'>().toMatchTypeOf<BlockParam>()
+    // @ts-expect-error — unknown block not assignable
+    expectTypeOf<'unknown'>().toMatchTypeOf<BlockParam>()
+  })
 
-    test('loose block input accepts any string', () => {
-      const looseBem = createBem(styles)
-      type BlockParam = Parameters<typeof looseBem>[0]
-      expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
-      expectTypeOf<'anything'>().toMatchTypeOf<BlockParam>()
-    })
+  test('without styles, input accepts any string', () => {
+    type BlockParam = Parameters<typeof bem>[0]
+    expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
+    expectTypeOf<'anything'>().toMatchTypeOf<BlockParam>()
   })
 })
