@@ -176,6 +176,110 @@ describe('without styles (plain BEM)', () => {
   })
 })
 
+describe('createBem with bound block (styles)', () => {
+  test('returns the block class with no args', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem()).toBe(styles['card'])
+  })
+
+  test('returns block__element class', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem('title')).toBe(styles['card__title'])
+  })
+
+  test('returns base + modifier classes', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem('title', 'highlighted')).toBe(
+      [styles['card__title'], styles['card__title--highlighted']].join(' '),
+    )
+  })
+
+  test('handles modifier array', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem('title', ['highlighted', 'large'])).toBe(
+      [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
+    )
+  })
+
+  test('handles object modifiers', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem('title', { 'highlighted': true, 'large': false })).toBe(
+      [styles['card__title'], styles['card__title--highlighted']].join(' '),
+    )
+  })
+
+  test('applies modifier directly to block with null element', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem(null, 'featured')).toBe(
+      [styles['card'], styles['card--featured']].join(' '),
+    )
+  })
+
+  test('handles object modifiers with null element', () => {
+    const bem = createBem(styles, 'card')
+
+    expect(bem(null, { 'featured': true, 'dark-mode': true })).toBe(
+      [styles['card'], styles['card--featured'], styles['card--dark-mode']].join(' '),
+    )
+  })
+})
+
+describe('createBem with bound block (plain BEM)', () => {
+  test('returns block with no args', () => {
+    const bem = createBem('card')
+
+    expect(bem()).toBe('card')
+  })
+
+  test('returns block__element', () => {
+    const bem = createBem('card')
+
+    expect(bem('title')).toBe('card__title')
+  })
+
+  test('returns base + modifier', () => {
+    const bem = createBem('card')
+
+    expect(bem('title', 'highlighted')).toBe('card__title card__title--highlighted')
+  })
+
+  test('handles modifier array', () => {
+    const bem = createBem('card')
+
+    expect(bem('title', ['highlighted', 'large'])).toBe(
+      'card__title card__title--highlighted card__title--large',
+    )
+  })
+
+  test('handles object modifiers', () => {
+    const bem = createBem('card')
+
+    expect(bem('title', { highlighted: true, large: false })).toBe(
+      'card__title card__title--highlighted',
+    )
+  })
+
+  test('applies modifier with null element', () => {
+    const bem = createBem('card')
+
+    expect(bem(null, 'featured')).toBe('card card--featured')
+  })
+
+  test('converts casing to kebab-case', () => {
+    const bem = createBem('navBar')
+
+    expect(bem('listItem', 'isActive')).toBe(
+      'nav-bar__list-item nav-bar__list-item--is-active',
+    )
+  })
+})
+
 describe('type extraction', () => {
   type S = typeof styles
 

@@ -50,6 +50,27 @@ function toBem(block: string, element?: string | null, modifier?: string): strin
 }
 
 /**
+ * Create a BEM class name helper bound to a CSS modules styles object with a pre-bound block.
+ *
+ * @example
+ * ```ts
+ * import styles from './card.module.css'
+ * const bem = createBem(styles, 'card')
+ * bem()                                                    // block only
+ * bem('title')                                             // block + element
+ * bem('title', 'highlighted')                              // block + element + modifier
+ * bem('title', { highlighted: true, large: isLarge })      // conditional modifiers
+ * bem(null, 'featured')                                    // block + modifier (no element)
+ * ```
+ */
+export function createBem<const TStyles extends Styles, B extends Blocks<TStyles>>(styles: TStyles, block: B): {
+  (): string
+  <E extends Elements<TStyles, B>>(element: E): string
+  <E extends Elements<TStyles, B>, M extends Modifiers<TStyles, B, E>>(element: E, modifiers: ModifierInput<M>): string
+  <M extends Modifiers<TStyles, B, null>>(element: null, modifiers?: ModifierInput<M>): string
+}
+
+/**
  * Create a BEM class name helper bound to a CSS modules styles object.
  *
  * Looks up hashed class names using BEM conventions (`block__element--modifier`).
@@ -77,6 +98,22 @@ export function createBem<const TStyles extends Styles>(styles: TStyles): {
 }
 
 /**
+ * Create a plain BEM class name builder with a pre-bound block (no CSS modules).
+ *
+ * @example
+ * ```ts
+ * const bem = createBem('card')
+ * bem('title', 'highlighted') // → 'card__title card__title--highlighted'
+ * ```
+ */
+export function createBem(block: string): {
+  (): string
+  (element: string): string
+  (element: string, modifiers: ModifierInput<string>): string
+  (element: null, modifiers?: ModifierInput<string>): string
+}
+
+/**
  * Create a plain BEM class name builder (no CSS modules).
  *
  * Builds raw BEM class strings with kebab-case conversion.
@@ -94,7 +131,10 @@ export function createBem(): {
   (block: string, element: null, modifiers?: ModifierInput<string>): string
 }
 
-export function createBem(styles?: Styles) {
+export function createBem(stylesOrBlock?: Styles | string, maybeBlock?: string) {
+  const styles = typeof stylesOrBlock === 'object' ? stylesOrBlock : undefined
+  const block = typeof stylesOrBlock === 'string' ? stylesOrBlock : maybeBlock
+
   function bem(
     block: string,
     element?: string | null,
@@ -120,7 +160,18 @@ export function createBem(styles?: Styles) {
       .join(' ')
   }
 
-  return bem
+  if (block !== undefined) {
+    return (
+      element?: string | null,
+      modifiers?: string | Falsy | (string | Falsy)[] | Record<string, boolean | undefined>,
+    ) => bem(block, element, modifiers)
+  }
+
+  return (
+    block: string,
+    element?: string | null,
+    modifiers?: string | Falsy | (string | Falsy)[] | Record<string, boolean | undefined>,
+  ) => bem(block, element, modifiers)
 }
 
 /**
