@@ -9,26 +9,28 @@
 
 BEM is a great naming convention, but using it means writing class names like `card__title--highlighted` by hand — which is tedious, error-prone, and noisy. With CSS Modules it's even worse: `styles['card__title--highlighted']`.
 
-`bem-modules` gives you a clean function call and works two ways:
+`bem-modules` gives you a clean function call, bound to your component's block, and works two ways:
 
 **Without CSS Modules** — builds raw BEM class strings. A lightweight alternative to concatenating while also ensuring the modifiers get applied correctly.
 
 ```ts
-import { bem } from '@kitbag/bem-modules'
+import { useBem } from '@kitbag/bem-modules'
 
-bem('navBar', 'item', 'active')
+const bem = useBem('navBar')
+
+bem('item', { active: true })
 // → 'nav-bar__item nav-bar__item--active'
 ```
 
 **With CSS Modules** — looks up hashed class names from your styles object with full autocomplete for every block, element, and modifier that exists in your stylesheet.
 
 ```ts
-import { createBem } from '@kitbag/bem-modules'
+import { useBem } from '@kitbag/bem-modules'
 import styles from './card.module.css'
 
-const bem = createBem(styles)
+const bem = useBem(styles, 'card')
 
-bem('card', 'title', 'highlighted')
+bem('title', { highlighted: true })
 // → '_card__title_x2 _card__title--highlighted_x3'
 ```
 
@@ -64,14 +66,20 @@ npm install @kitbag/bem-modules
 
 ## Quick start
 
-```ts
-import { bem } from '@kitbag/bem-modules'
+Call `useBem` with your component's block, then use the returned `bem` for the block, its elements, and their modifiers:
 
-bem('card')                            // 'card'
-bem('card', 'title')                   // 'card__title'
-bem('card', 'title', 'highlighted')    // 'card__title card__title--highlighted'
-bem('card', null, 'featured')          // 'card card--featured'
+```ts
+import { useBem } from '@kitbag/bem-modules'
+
+const bem = useBem('card')
+
+bem()                                // 'card'
+bem('title')                         // 'card__title'
+bem('title', { highlighted: true })  // 'card__title card__title--highlighted'
+bem({ featured: true })              // 'card card--featured'
 ```
+
+Inputs are converted to kebab-case, so with `useBem('navBar')`, `bem('listItem', { isActive: true })` gives `'nav-bar__list-item nav-bar__list-item--is-active'`.
 
 ### With CSS Modules
 
@@ -90,18 +98,18 @@ TypeScript infers the valid blocks, elements, and modifiers from your styles obj
 ```
 
 ```tsx
-import { createBem } from '@kitbag/bem-modules'
+import { useBem } from '@kitbag/bem-modules'
 import styles from './card.module.css'
 
-const bem = createBem(styles)
+const bem = useBem(styles, 'card')
 
-function Card({ title }: { title: string }) {
+function Card({ title, featured }: { title: string, featured: boolean }) {
   const [isHighlighted, setIsHighlighted] = useState(false)
 
   return (
-    <div className={bem('card')}>
-      <h2 className={bem('card', 'title', { highlighted: isHighlighted })}>{title}</h2>
-      <div className={bem('card', 'body')} />
+    <div className={bem({ featured })}>
+      <h2 className={bem('title', { highlighted: isHighlighted })}>{title}</h2>
+      <div className={bem('body')} />
     </div>
   )
 }
@@ -111,19 +119,21 @@ function Card({ title }: { title: string }) {
 
 ```vue
 <script setup lang="ts">
-  import { createBem } from '@kitbag/bem-modules'
-  import { useCssModule } from 'vue'
+  import { useBem } from '@kitbag/bem-modules'
+  import { ref, useCssModule } from 'vue'
+
+  defineProps<{ title: string }>()
 
   const styles = useCssModule()
-  const bem = createBem(styles)
+  const bem = useBem(styles, 'card')
 
   const isHighlighted = ref(false)
 </script>
 
 <template>
-  <div class="${bem('card')}">
-    <h2 class="${bem('card', 'title', { highlighted: isHighlighted })}">${title}</h2>
-    <div class="${bem('card', 'body')}"></div>
+  <div :class="bem()">
+    <h2 :class="bem('title', { highlighted: isHighlighted })">{{ title }}</h2>
+    <div :class="bem('body')"></div>
   </div>
 </template>
 
@@ -139,25 +149,46 @@ function Card({ title }: { title: string }) {
 
 ## Conditional modifiers
 
-Modifiers accept an object mapping modifier names to booleans — perfect for toggling classes from state:
+Modifiers are an object mapping modifier names to booleans — only truthy entries are applied, which makes toggling classes from state straightforward:
 
 ```ts
-bem('card', 'title', {
+const bem = useBem(styles, 'card')
+
+bem('title', {
   highlighted: true,
   large: isLarge,       // included only when isLarge is truthy
   active: isActive,     // included only when isActive is truthy
 })
 ```
 
-You can also pass an array where **falsy values (`false`, `null`, `undefined`, `0`, `''`) are filtered out**:
+Pass the object in place of the element to modify the block itself:
 
 ```ts
-bem('card', 'title', [
-  'highlighted',
-  isLarge && 'large',
-  isActive && 'active',
-])
+bem({ featured: isFeatured })
 ```
+
+With a styles object, modifier keys are typed per block/element, so `bem('title', { featured: true })` is a type error when `.card__title--featured` doesn't exist.
+
+## Without a bound block
+
+If you need classes from more than one block in the same place, leave the block off and pass it as the first argument instead. The package also exports `bem`, which is `useBem()` ready to use:
+
+```ts
+import { bem, useBem } from '@kitbag/bem-modules'
+
+bem('card', 'title', { highlighted: true })   // 'card__title card__title--highlighted'
+bem('card', { featured: true })               // 'card card--featured'
+
+const cssBem = useBem(styles)
+cssBem('nav-bar', 'item', { active: true })   // typed against every block in styles
+```
+
+| Call | Returns |
+| --- | --- |
+| `useBem(block)` | `bem(element?, modifiers?)` / `bem(modifiers)` |
+| `useBem(styles, block)` | Same, typed and looked up against `styles` |
+| `useBem()` | `bem(block, element?, modifiers?)` / `bem(block, modifiers)` |
+| `useBem(styles)` | Same, typed and looked up against `styles` |
 
 ---
 
