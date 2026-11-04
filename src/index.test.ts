@@ -1,7 +1,7 @@
 import { describe, test, expect, expectTypeOf } from 'vitest'
-import { bem, createBem, type Blocks, type Elements, type Modifiers } from './index'
+import { bem, useBem, type Blocks, type Elements, type Modifiers } from './index'
 
-// Simulated CSS modules output — keys are BEM classes, values are hashed names
+// Simulated CSS modules output — keys are BEM classes, values are emitted names
 const styles = {
   'card': '_card_x1',
   'card__title': '_card__title_x2',
@@ -15,131 +15,91 @@ const styles = {
   'nav-bar__item--active': '_nav-bar__item--active_y3',
 } as const
 
-describe('createBem', () => {
+describe('useBem(styles)', () => {
   describe('block only', () => {
     test('returns the block class', () => {
-      const bem = createBem(styles)
-      const value = bem('card')
+      const bem = useBem(styles)
 
-      expect(value).toBe(styles['card'])
+      expect(bem('card')).toBe(styles['card'])
     })
 
     test('handles kebab-case block names', () => {
-      const bem = createBem(styles)
-      const value = bem('nav-bar')
+      const bem = useBem(styles)
 
-      expect(value).toBe(styles['nav-bar'])
+      expect(bem('nav-bar')).toBe(styles['nav-bar'])
     })
   })
 
   describe('block + element', () => {
     test('returns the block__element class', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title')
+      const bem = useBem(styles)
 
-      expect(value).toBe(styles['card__title'])
+      expect(bem('card', 'title')).toBe(styles['card__title'])
     })
 
     test('handles kebab-case element names', () => {
-      const bem = createBem(styles)
-      const value = bem('nav-bar', 'item')
+      const bem = useBem(styles)
 
-      expect(value).toBe(styles['nav-bar__item'])
+      expect(bem('nav-bar', 'item')).toBe(styles['nav-bar__item'])
     })
   })
 
-  describe('block + element + modifier', () => {
-    test('returns base + modifier classes', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', 'highlighted')
-
-      expect(value).toBe(
-        [styles['card__title'], styles['card__title--highlighted']].join(' '),
-      )
-    })
-
-    test('handles modifier array', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', ['highlighted', 'large'])
-
-      expect(value).toBe(
-        [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
-      )
-    })
-
-    test.each([false, null, undefined, 0, ''] as const)('filters falsy values from modifier array', (falsy) => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', ['highlighted', falsy && 'large'])
-
-      expect(value).toBe(
-        [styles['card__title'], styles['card__title--highlighted']].join(' '),
-      )
-    })
-  })
-
-  describe('object modifiers', () => {
+  describe('block + element + modifiers', () => {
     test('applies modifiers with truthy values', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', { 'highlighted': true, 'large': false })
+      const bem = useBem(styles)
 
-      expect(value).toBe(
+      expect(bem('card', 'title', { highlighted: true, large: false })).toBe(
         [styles['card__title'], styles['card__title--highlighted']].join(' '),
       )
     })
 
     test('applies multiple truthy modifiers', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', { 'highlighted': true, 'large': true })
+      const bem = useBem(styles)
 
-      expect(value).toBe(
+      expect(bem('card', 'title', { highlighted: true, large: true })).toBe(
         [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
       )
     })
 
     test('applies no modifiers when all values are falsy', () => {
-      const bem = createBem(styles)
-      const value = bem('card', 'title', { 'highlighted': false, 'large': undefined })
+      const bem = useBem(styles)
 
-      expect(value).toBe(styles['card__title'])
-    })
-
-    test('works with block + null element', () => {
-      const bem = createBem(styles)
-      const value = bem('card', null, { 'featured': true })
-
-      expect(value).toBe(
-        [styles['card'], styles['card--featured']].join(' '),
-      )
+      expect(bem('card', 'title', { highlighted: false, large: undefined })).toBe(styles['card__title'])
     })
   })
 
-  describe('block + null element + modifier', () => {
-    test('applies modifier directly to block', () => {
-      const bem = createBem(styles)
-      const value = bem('card', null, ['featured', true && 'dark-mode'])
+  describe('block + modifiers (no element)', () => {
+    test('applies modifiers directly to the block', () => {
+      const bem = useBem(styles)
 
-      expect(value).toBe(
+      expect(bem('card', { 'featured': true, 'dark-mode': true })).toBe(
         [styles['card'], styles['card--featured'], styles['card--dark-mode']].join(' '),
       )
+    })
+
+    test('skips falsy block modifiers', () => {
+      const bem = useBem(styles)
+
+      expect(bem('card', { featured: false })).toBe(styles['card'])
     })
   })
 
   describe('unmapped keys', () => {
     test('drops unmapped blocks', () => {
-      const bem = createBem(styles)
+      const bem = useBem(styles)
       // @ts-expect-error — testing runtime safety
       expect(bem('nonexistent')).toBe('')
     })
 
     test('drops unmapped modifiers', () => {
-      const bem = createBem(styles)
+      const bem = useBem(styles)
       // @ts-expect-error — testing runtime safety
-      expect(bem('card', 'title', 'nonexistent')).toBe(styles['card__title'])
+      expect(bem('card', 'title', { nonexistent: true })).toBe(styles['card__title'])
     })
   })
 })
 
-describe('without styles (plain BEM)', () => {
+describe('bem (plain BEM)', () => {
   test('returns raw BEM block string', () => {
     expect(bem('card')).toBe('card')
   })
@@ -149,132 +109,89 @@ describe('without styles (plain BEM)', () => {
   })
 
   test('returns raw BEM block__element--modifier string', () => {
-    expect(bem('card', 'title', 'highlighted')).toBe('card__title card__title--highlighted')
-  })
-
-  test('handles modifier array with falsy values', () => {
-    const isLarge = false
-    expect(bem('card', 'title', ['highlighted', isLarge && 'large'])).toBe(
-      'card__title card__title--highlighted',
-    )
-  })
-
-  test('handles object modifiers', () => {
     expect(bem('card', 'title', { highlighted: true, large: false })).toBe(
       'card__title card__title--highlighted',
     )
   })
 
   test('returns raw BEM block--modifier string', () => {
-    expect(bem('card', null, 'featured')).toBe('card card--featured')
+    expect(bem('card', { featured: true })).toBe('card card--featured')
   })
 
   test('converts casing to kebab-case', () => {
-    expect(bem('navBar', 'listItem', 'isActive')).toBe(
+    expect(bem('navBar', 'listItem', { isActive: true })).toBe(
       'nav-bar__list-item nav-bar__list-item--is-active',
+    )
+  })
+
+  test('converts acronyms, underscores, and spaces to kebab-case', () => {
+    expect(bem('myXMLFile', 'list_item', { 'is active': true })).toBe(
+      'my-xml-file__list-item my-xml-file__list-item--is-active',
     )
   })
 })
 
-describe('createBem with bound block (styles)', () => {
+describe('useBem(styles, block)', () => {
   test('returns the block class with no args', () => {
-    const bem = createBem(styles, 'card')
+    const bem = useBem(styles, 'card')
 
     expect(bem()).toBe(styles['card'])
   })
 
   test('returns block__element class', () => {
-    const bem = createBem(styles, 'card')
+    const bem = useBem(styles, 'card')
 
     expect(bem('title')).toBe(styles['card__title'])
   })
 
-  test('returns base + modifier classes', () => {
-    const bem = createBem(styles, 'card')
+  test('handles element modifiers', () => {
+    const bem = useBem(styles, 'card')
 
-    expect(bem('title', 'highlighted')).toBe(
+    expect(bem('title', { highlighted: true, large: false })).toBe(
       [styles['card__title'], styles['card__title--highlighted']].join(' '),
     )
   })
 
-  test('handles modifier array', () => {
-    const bem = createBem(styles, 'card')
+  test('handles block modifiers', () => {
+    const bem = useBem(styles, 'card')
 
-    expect(bem('title', ['highlighted', 'large'])).toBe(
-      [styles['card__title'], styles['card__title--highlighted'], styles['card__title--large']].join(' '),
-    )
-  })
-
-  test('handles object modifiers', () => {
-    const bem = createBem(styles, 'card')
-
-    expect(bem('title', { 'highlighted': true, 'large': false })).toBe(
-      [styles['card__title'], styles['card__title--highlighted']].join(' '),
-    )
-  })
-
-  test('applies modifier directly to block with null element', () => {
-    const bem = createBem(styles, 'card')
-
-    expect(bem(null, 'featured')).toBe(
-      [styles['card'], styles['card--featured']].join(' '),
-    )
-  })
-
-  test('handles object modifiers with null element', () => {
-    const bem = createBem(styles, 'card')
-
-    expect(bem(null, { 'featured': true, 'dark-mode': true })).toBe(
+    expect(bem({ 'featured': true, 'dark-mode': true })).toBe(
       [styles['card'], styles['card--featured'], styles['card--dark-mode']].join(' '),
     )
   })
 })
 
-describe('createBem with bound block (plain BEM)', () => {
+describe('useBem(block)', () => {
   test('returns block with no args', () => {
-    const bem = createBem('card')
+    const bem = useBem('card')
 
     expect(bem()).toBe('card')
   })
 
   test('returns block__element', () => {
-    const bem = createBem('card')
+    const bem = useBem('card')
 
     expect(bem('title')).toBe('card__title')
   })
 
-  test('returns base + modifier', () => {
-    const bem = createBem('card')
-
-    expect(bem('title', 'highlighted')).toBe('card__title card__title--highlighted')
-  })
-
-  test('handles modifier array', () => {
-    const bem = createBem('card')
-
-    expect(bem('title', ['highlighted', 'large'])).toBe(
-      'card__title card__title--highlighted card__title--large',
-    )
-  })
-
-  test('handles object modifiers', () => {
-    const bem = createBem('card')
+  test('handles element modifiers', () => {
+    const bem = useBem('card')
 
     expect(bem('title', { highlighted: true, large: false })).toBe(
       'card__title card__title--highlighted',
     )
   })
 
-  test('applies modifier with null element', () => {
-    const bem = createBem('card')
+  test('handles block modifiers', () => {
+    const bem = useBem('card')
 
-    expect(bem(null, 'featured')).toBe('card card--featured')
+    expect(bem({ featured: true })).toBe('card card--featured')
   })
 
   test('converts casing to kebab-case', () => {
-    const bem = createBem('navBar')
+    const bem = useBem('navBar')
 
-    expect(bem('listItem', 'isActive')).toBe(
+    expect(bem('listItem', { isActive: true })).toBe(
       'nav-bar__list-item nav-bar__list-item--is-active',
     )
   })
@@ -292,27 +209,37 @@ describe('type extraction', () => {
   })
 
   test('extracts modifiers for block + element', () => {
-    type Input = Modifiers<S, 'card', 'title'>
-    expectTypeOf<Input>().toEqualTypeOf<'highlighted' | 'large'>()
+    expectTypeOf<Modifiers<S, 'card', 'title'>>().toEqualTypeOf<'highlighted' | 'large'>()
   })
 
   test('extracts modifiers for block only', () => {
-    type Input = Modifiers<S, 'card'>
-    expectTypeOf<Input>().toEqualTypeOf<'featured' | 'dark-mode'>()
+    expectTypeOf<Modifiers<S, 'card'>>().toEqualTypeOf<'featured' | 'dark-mode'>()
   })
 
-  test('with styles, input is restricted to known blocks', () => {
-    const bem = createBem(styles)
-    type BlockParam = Parameters<typeof bem>[0]
-    expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
-    expectTypeOf<'nav-bar'>().toMatchTypeOf<BlockParam>()
-    // @ts-expect-error — unknown block not assignable
-    expectTypeOf<'unknown'>().toMatchTypeOf<BlockParam>()
+  test('with styles, unknown blocks, elements, and modifiers are rejected', () => {
+    const bem = useBem(styles)
+
+    // @ts-expect-error — unknown block
+    bem('unknown')
+    // @ts-expect-error — unknown element
+    bem('card', 'unknown')
+    // @ts-expect-error — element modifier used on block
+    bem('card', { highlighted: true })
+    // @ts-expect-error — block modifier used on element
+    bem('card', 'title', { featured: true })
+  })
+
+  test('with styles and bound block, unknown elements and modifiers are rejected', () => {
+    const bem = useBem(styles, 'card')
+
+    // @ts-expect-error — unknown element
+    bem('unknown')
+    // @ts-expect-error — element modifier used on block
+    bem({ highlighted: true })
   })
 
   test('without styles, input accepts any string', () => {
     type BlockParam = Parameters<typeof bem>[0]
-    expectTypeOf<'card'>().toMatchTypeOf<BlockParam>()
-    expectTypeOf<'anything'>().toMatchTypeOf<BlockParam>()
+    expectTypeOf<'anything'>().toExtend<BlockParam>()
   })
 })
